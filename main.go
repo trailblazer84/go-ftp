@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/google/goterm/term"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,11 +19,15 @@ type ctx struct {
 }
 
 var (
-	sip    = flag.String("sip", "", "server IP")
-	cmd    = flag.String("cmd", "", "command to use (send / recv)")
-	files  = flag.String("files", "", "list of files (',' separated")
-	client = flag.Bool("client", false, "run as a client")
+	sip     = flag.String("sip", "", "server IP")
+	cmd     = flag.String("cmd", "", "command to use (send / recv)")
+	files   = flag.String("files", "", "list of files (',' separated")
+	client  = flag.Bool("client", false, "run as a client")
+	debug   = flag.Bool("debug", false, "add debugging")
+	logFile = "go-ftp.log"
 )
+
+var ftplog *log.Logger
 
 func removeDupFiles(f []string) []string {
 	keys := make(map[string]bool)
@@ -73,7 +77,6 @@ func validateFiles(c *ctx) bool {
 	if strings.Compare(strings.ToUpper(*cmd), "SEND") == 0 {
 		for _, file := range c.Files {
 			fst, _ := os.Stat(file)
-			fmt.Println(file, fst.Size())
 			c.Fsizes = append(c.Fsizes, fst.Size())
 		}
 	}
@@ -105,33 +108,52 @@ func validateArgs(c *ctx) bool {
 		}
 	}
 
+	if *debug == true {
+		lfname := "server/" + logFile
+		if *client == true {
+			lfname = "client/" + logFile
+		}
+
+		logFD, err := os.Create(lfname)
+		if err != nil {
+			fmt.Println(logFile, "creation failed!")
+			return false
+		}
+		ftplog = log.New(logFD, "go-ftp", log.Lshortfile)
+		fmt.Println("logging enabled - ", lfname)
+	}
+
 	return true
 }
 
 func handleClient(c *ctx) {
-	fmt.Println(term.Redf("my_ftp client"))
-	fmt.Println("server IP -", c.sip)
-	fmt.Println("cmd -", c.Cmd)
-	fmt.Println("files -")
+	ftplog.Println("my_ftp client")
+	ftplog.Println("server IP -", c.sip)
+	ftplog.Println("cmd -", c.Cmd)
+	ftplog.Println("files -")
 	for _, file := range c.Files {
-		fmt.Println(file)
+		ftplog.Println(file)
 	}
 
 	err := connectServer(c)
 	if err != nil {
-		fmt.Println("connnection failed -", err)
+		fmt.Println("failed!")
 	}
 }
 
 func handleServer(c *ctx) {
-	fmt.Println(term.Redf("my_ftp server"))
+	ftplog.Println("my_ftp server")
 	err := connectClient(c)
 	if err != nil {
-		fmt.Println("connnection failed -", err)
+		fmt.Println("failed!")
 	}
 }
 
 func main() {
+
+	os.Mkdir("client", os.ModeDir|os.ModePerm)
+	os.Mkdir("server", os.ModeDir|os.ModePerm)
+
 	flag.Parse()
 	ctx := ctx{client: *client, sip: *sip, Cmd: *cmd}
 

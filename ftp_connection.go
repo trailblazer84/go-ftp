@@ -22,7 +22,7 @@ const (
 
 func connectServer(c *ctx) error {
 	server := c.sip + ":" + strconv.Itoa(mfport)
-	fmt.Println("connect to ", server)
+	ftplog.Println("connect to ", server)
 
 	conn, err := net.DialTimeout("tcp", server, time.Duration(cto)*time.Second)
 	if err != nil {
@@ -40,46 +40,50 @@ func connectServer(c *ctx) error {
 
 	switch c.Cmd {
 	case "send":
-		fmt.Println("sending file -")
 		for _, file := range c.Files {
-			fmt.Println(file)
+			ftplog.Println("sending file -", file)
 			fdesc, err := os.Open(file)
 			if err != nil {
+				ftplog.Println(err)
 				return err
 			}
 			fst, _ := fdesc.Stat()
 			wr, err := io.CopyN(rw, fdesc, fst.Size())
 			if err != nil {
+				ftplog.Println(err)
 				return err
 			}
-			fmt.Println("bytes sent -", wr)
+			ftplog.Println("bytes sent -", wr)
 		}
 		break
 	case "recv":
-		fmt.Println("receiving file -")
 		for _, file := range c.Files {
-			fmt.Println("client/" + filepath.Base(file))
-			fdesc, err := os.Create("client/" + filepath.Base(file))
-			if err != nil {
-				return err
-			}
+			ftplog.Println("receiving file -", file)
 			str, _ := rw.ReadString('\n')
 			str = strings.Trim(str, "\n")
 			sz, err := strconv.Atoi(str)
 			if err != nil {
+				ftplog.Println(str)
+				return err
+			}
+			ftplog.Println("client/" + filepath.Base(file))
+			fdesc, err := os.Create("client/" + filepath.Base(file))
+			if err != nil {
+				ftplog.Println(err)
 				return err
 			}
 			wr, err := io.CopyN(fdesc, rw, int64(sz))
 			if err != nil {
 				return err
 			}
-			fmt.Println("bytes received -", wr)
+			ftplog.Println("bytes received -", wr)
 		}
 		break
 	}
 
-	fmt.Println("waiting to get result")
+	ftplog.Println("waiting to get result")
 	str, err := rw.ReadString('\n')
+	ftplog.Println(c.Cmd, " - ", str)
 	fmt.Println(c.Cmd, " - ", str)
 
 	return nil
@@ -95,15 +99,15 @@ func ftpio(conn net.Conn) {
 	}
 
 	str := ""
-	fmt.Println(c.Cmd, c.Files)
+	ftplog.Println(c.Cmd, c.Files)
 	switch c.Cmd {
 	case "send":
-		fmt.Println("receiving file from ", conn.RemoteAddr())
+		ftplog.Println("receiving file from ", conn.RemoteAddr())
 		for i, file := range c.Files {
-			fmt.Println("server/" + filepath.Base(file))
+			ftplog.Println("server/" + filepath.Base(file))
 			fdesc, err := os.Create("server/" + filepath.Base(file))
 			if err != nil {
-				str = "does not exist\n"
+				str = "IO error\n"
 				break
 			}
 			sz := c.Fsizes[i]
@@ -112,13 +116,13 @@ func ftpio(conn net.Conn) {
 				str = "IO error\n"
 				break
 			}
-			fmt.Println("bytes received -", wr)
+			ftplog.Println("bytes received -", wr)
 		}
 		break
 	case "recv":
-		fmt.Println("sending file to", conn.RemoteAddr())
+		ftplog.Println("sending file to", conn.RemoteAddr())
 		for _, file := range c.Files {
-			fmt.Println(file)
+			ftplog.Println(file)
 			fst, err := os.Stat(file)
 			if os.IsNotExist(err) {
 				str = "does not exist\n"
@@ -135,7 +139,7 @@ func ftpio(conn net.Conn) {
 				str = "IO error\n"
 				break
 			}
-			fmt.Println("bytes sent -", wr)
+			ftplog.Println("bytes sent -", wr)
 		}
 		break
 	}
@@ -144,7 +148,7 @@ func ftpio(conn net.Conn) {
 		str = "success\n"
 	}
 
-	fmt.Println(str)
+	ftplog.Println(str)
 	rw.WriteString(str)
 	rw.Flush()
 }
@@ -157,14 +161,14 @@ func connectClient(c *ctx) error {
 	}
 
 	for {
-		fmt.Println("Waiting to accept connection from client")
+		ftplog.Println("Waiting to accept connection from client")
 		conn, err := ln.Accept()
 		if err != nil {
 			break
 		}
 		defer conn.Close()
 
-		fmt.Println("Accepted connection from client -", conn.RemoteAddr())
+		ftplog.Println("Accepted connection from client -", conn.RemoteAddr())
 
 		go ftpio(conn)
 	}
