@@ -23,7 +23,6 @@ var (
 	cmd     = flag.String("cmd", "", "command to use (send / recv)")
 	files   = flag.String("files", "", "list of files (',' separated")
 	client  = flag.Bool("client", false, "run as a client")
-	debug   = flag.Bool("debug", false, "add debugging")
 	logFile = "go-ftp.log"
 )
 
@@ -108,20 +107,17 @@ func validateArgs(c *ctx) bool {
 		}
 	}
 
-	if *debug == true {
-		lfname := "server/" + logFile
-		if *client == true {
-			lfname = "client/" + logFile
-		}
-
-		logFD, err := os.Create(lfname)
-		if err != nil {
-			fmt.Println(logFile, "creation failed!")
-			return false
-		}
-		ftplog = log.New(logFD, "go-ftp", log.Lshortfile)
-		fmt.Println("logging enabled - ", lfname)
+	lfname := "server/" + logFile
+	if *client == true {
+		lfname = "client/" + logFile
 	}
+
+	logFD, err := os.Create(lfname)
+	if err != nil {
+		fmt.Println(logFile, "creation failed!")
+		return false
+	}
+	ftplog = log.New(logFD, "go-ftp", log.Lshortfile)
 
 	return true
 }
